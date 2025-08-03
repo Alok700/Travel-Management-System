@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Travel Management</title>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    body { font-family: Arial; padding: 10px; }
+    input, select, button { margin: 5px; padding: 6px; }
+    #map { height: 400px; margin-top: 20px; }
+    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+  </style>
+</head>
+<body>
+  <h2>Travel Locations</h2>
+
+  <!-- Form to add location -->
+  <form onsubmit="addLocation(event)">
+    <input id="name" placeholder="Name" required />
+    <input id="lat" type="number" step="any" placeholder="Latitude" required />
+    <input id="lon" type="number" step="any" placeholder="Longitude" required />
+    <input id="desc" placeholder="Description" required />
+    <button type="submit">Add</button>
+  </form>
+
+  <!-- Filter -->
+  <input id="filterInput" placeholder="Filter by name or state" oninput="filterLocations()" />
+
+  <!-- Map -->
+  <div id="map"></div>
+
+  <!-- Table -->
+  <table>
+    <thead>
+      <tr><th>Name</th><th>Lat</th><th>Lon</th><th>Description</th></tr>
+    </thead>
+    <tbody id="locationTable"></tbody>
+  </table>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    let locations = [];
+    let map = L.map('map').setView([22.9734, 78.6569], 5); // Centered on India
+    let markers = [];
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    function addMarker(loc) {
+      const marker = L.marker([loc.latitude, loc.longitude])
+        .addTo(map)
+        .bindPopup(`<b>${loc.name}</b><br>${loc.description}`);
+      markers.push(marker);
+    }
+
+    async function loadLocations() {
+      const res = await fetch('http://127.0.0.1:5000/locations');
+      locations = await res.json();
+      displayLocations(locations);
+    }
+
+    function displayLocations(data) {
+      const table = document.getElementById('locationTable');
+      table.innerHTML = '';
+      markers.forEach(m => m.remove()); // clear markers
+      markers = [];
+
+      data.forEach(loc => {
+        const row = document.createElement('tr');
+        row.innerHTML = `<td>${loc.name}</td><td>${loc.latitude}</td><td>${loc.longitude}</td><td>${loc.description}</td>`;
+        table.appendChild(row);
+        addMarker(loc);
+      });
+    }
+
+    async function addLocation(event) {
+      event.preventDefault();
+      const name = document.getElementById('name').value;
+      const latitude = parseFloat(document.getElementById('lat').value);
+      const longitude = parseFloat(document.getElementById('lon').value);
+      const description = document.getElementById('desc').value;
+
+      const res = await fetch('http://127.0.0.1:5000/add-location', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, latitude, longitude, description })
+      });
+      const result = await res.json();
+      alert(result.message || result.error);
+      loadLocations();
+    }
+
+    function filterLocations() {
+      const query = document.getElementById('filterInput').value.toLowerCase();
+      const filtered = locations.filter(loc =>
+        loc.name.toLowerCase().includes(query) ||
+        loc.description.toLowerCase().includes(query)
+      );
+      displayLocations(filtered);
+    }
+
+    loadLocations();
+        // 🌐 Auto-fill lat/lon on map click
+    let tempMarker;
+
+    map.on('click', function (e) {
+      const { lat, lng } = e.latlng;
+      document.getElementById('lat').value = lat.toFixed(6);
+      document.getElementById('lon').value = lng.toFixed(6);
+
+      if (tempMarker) tempMarker.remove();
+      tempMarker = L.marker([lat, lng], { opacity: 0.6 })
+        .addTo(map)
+        .bindPopup("Selected Location").openPopup();
+    });
+
+  </script>
+</body>
+</html>
