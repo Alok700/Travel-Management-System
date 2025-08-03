@@ -55,5 +55,4 @@ npm start
 
 ---
 
-## 📦 Deployment
-Use tools like Docker or Vercel (frontend) and Render (backend) for deployment.
+
